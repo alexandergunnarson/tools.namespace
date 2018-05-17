@@ -32,7 +32,10 @@
           (update-in tracker [::track/unload] rest))
       (seq load)
         (let [n (first load)]
-          (try (require n :reload)
+          (try (-> tracker 
+                   (get-in [:clojure.tools.namespace.file/ns-sym->file ns-sym])
+                   str
+                   load-file)
                (update-in tracker [::track/load] rest)
                (catch Throwable t
                  (assoc tracker
