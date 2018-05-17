@@ -64,8 +64,9 @@
               (let [deps (parse/deps-from-ns-decl decl)
                     name (parse/name-from-ns-decl decl)]
                 (-> m
-                    (assoc-in [:depmap name] deps)
-                    (assoc-in [:filemap file] name)))
+                    (assoc-in [:dep->ns-sym name] deps)
+                    (assoc-in [:file->ns-sym file] name)
+                    (assoc-in [:ns-sym->file name] file)))
               m))
           {} files))
 
@@ -78,16 +79,20 @@
   ([tracker files]
    (add-files tracker files nil))
   ([tracker files read-opts]
-   (let [{:keys [depmap filemap]} (files-and-deps files read-opts)]
+   (let [{:keys [dep->ns-sym file->ns-sym ns-sym->file]} 
+           (files-and-deps files read-opts)]
      (-> tracker
-         (track/add depmap)
-         (update-in [::filemap] merge-map filemap)))))
+         (track/add dep->ns-sym)
+         (update-in [::file->ns-sym] merge-map file->ns-sym)
+         (update-in [::ns-sym->file] merge-map ns-sym->file)))))
 
 (defn remove-files
   "Returns an updated dependency tracker with files removed. The files
   must have been previously added with add-files."
   [tracker files]
-  (-> tracker
-      (track/remove (keep (::filemap tracker {}) files))
-      (update-in [::filemap] #(apply dissoc % files))))
+  (let [ns-syms (-> tracker ::file->ns-sym (select-keys files) vals)]
+    (-> tracker
+        (track/remove (keep (::file->ns-sym tracker {}) files))
+        (update-in [::file->ns-sym] #(apply dissoc % files))
+        (update-in [::ns-sym->file] #(apply dissoc % ns-syms))))
 
